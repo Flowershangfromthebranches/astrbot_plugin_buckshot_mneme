@@ -5,14 +5,14 @@ Godot 模式由 main.py 的桥接消息直接驱动；这里只负责内置模�
 from __future__ import annotations
 
 import asyncio
-import logging
 import re
 from typing import Awaitable, Callable
+
+from astrbot.api import logger
 
 from .decision import event_description, fallback_action
 from .mock_engine import GameError, MockBuckshotGame
 
-LOG = logging.getLogger(__name__)
 
 
 class MockMatch:
@@ -85,12 +85,12 @@ class MockMatch:
         done, _ = await asyncio.wait({task}, timeout=50)
         if task not in done:
             task.cancel()
-            LOG.error("[buckshot] dealer AI hard timeout; using fallback")
+            logger.error("[buckshot] dealer AI hard timeout; using fallback")
             return {"game_action": fallback_action(view), "qq_message": "", "memory_note": ""}
         try:
             return task.result()
         except Exception:
-            LOG.exception("[buckshot] dealer AI failed; using fallback")
+            logger.exception("[buckshot] dealer AI failed; using fallback")
             return {"game_action": fallback_action(view), "qq_message": "", "memory_note": ""}
 
     async def _dealer_loop(self) -> None:
@@ -99,19 +99,19 @@ class MockMatch:
             while not self.finished and self.engine.turn == "dealer":
                 guard += 1
                 if guard > 60:
-                    LOG.error("[buckshot] dealer turn exceeded action guard; forcing a shot")
+                    logger.error("[buckshot] dealer turn exceeded action guard; forcing a shot")
                     try:
                         await self._handle_events(
                             self.engine.dealer_action({"type": "shoot", "target": "player"}))
                     except Exception:
-                        LOG.exception("[buckshot] dealer guard action failed")
+                        logger.exception("[buckshot] dealer guard action failed")
                         self.finished = True
                     break
                 view = self.engine.dealer_view()
                 try:
                     decision = await self._dealer_decide(view)
                 except Exception:
-                    LOG.exception("[buckshot] dealer AI failed; using fallback")
+                    logger.exception("[buckshot] dealer AI failed; using fallback")
                     decision = {"game_action": fallback_action(view),
                                 "qq_message": "", "memory_note": ""}
                 message = str(decision.get("qq_message") or "").strip()
@@ -126,7 +126,7 @@ class MockMatch:
                             self.match_id, note, kind=kind,
                             player_id=self.player_key, confidence="verified")
                 except Exception:
-                    LOG.exception("[buckshot] dealer side effect failed")
+                    logger.exception("[buckshot] dealer side effect failed")
                 action = decision.get("game_action") or fallback_action(view)
                 self.transcript.append(
                     f"[恶魔] {action.get('type')} {action.get('item') or action.get('target')}"
@@ -136,17 +136,17 @@ class MockMatch:
                 except GameError:
                     events = self.engine.dealer_action(fallback_action(view))
                 except Exception:
-                    LOG.exception("[buckshot] dealer action failed; using fallback")
+                    logger.exception("[buckshot] dealer action failed; using fallback")
                     try:
                         events = self.engine.dealer_action(fallback_action(view))
                     except Exception:
-                        LOG.exception("[buckshot] dealer fallback failed; ending turn")
+                        logger.exception("[buckshot] dealer fallback failed; ending turn")
                         self.finished = True
                         break
                 try:
                     await self._handle_events(events)
                 except Exception:
-                    LOG.exception("[buckshot] dealer event dispatch failed")
+                    logger.exception("[buckshot] dealer event dispatch failed")
 
     async def _handle_events(self, events: list[dict]) -> None:
         for payload in events:
@@ -188,7 +188,7 @@ class MockMatch:
         try:
             await self.on_event_cb(payload, self.engine.public_state())
         except Exception:
-            LOG.exception("[buckshot] event banter failed")
+            logger.exception("[buckshot] event banter failed")
 
     @staticmethod
     def _action_label(action: dict) -> str:

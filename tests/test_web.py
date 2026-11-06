@@ -33,6 +33,16 @@ def test_lan_ip_is_not_vpn():
     assert not lan_ip().startswith("198.18.")
 
 
+def test_url_for_is_async_and_cached():
+    async def run():
+        server = GameWebServer("127.0.0.1", 12345, "web_controller/static")
+        server.reset_match("match-url", "token-url", "测试玩家")
+        url = await server.url_for()
+        assert url == "http://127.0.0.1:12345/?token=token-url"
+
+    asyncio.run(run())
+
+
 def test_web_isolation_and_relay():
     async def run():
         port = _free_port()

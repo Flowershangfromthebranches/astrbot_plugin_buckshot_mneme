@@ -8,12 +8,12 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import json
-import logging
 import socket
 from pathlib import Path
 from urllib.parse import quote
 
 from aiohttp import WSMsgType, web
+from astrbot.api import logger
 
 SENSITIVE_KEYS = {
     "sequence", "shell_sequence", "shells", "player_private", "private_peek",
@@ -123,7 +123,7 @@ class GameWebServer:
     def __init__(self, host: str, port: int, static_dir: str | Path, *,
                  on_player_action=None, on_game_message=None, on_game_connected=None,
                  public_base_url: str = "", bridge_token: str = "",
-                 logger: logging.Logger | None = None):
+                 log=None):
         self.host = host
         self.port = int(port)
         self.static_dir = Path(static_dir)
@@ -132,7 +132,7 @@ class GameWebServer:
         self.on_game_message = on_game_message
         self.on_game_connected = on_game_connected
         self.public_base_url = (public_base_url or "").rstrip("/")
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = log or logger
         self.token: str | None = None
         self.match_id: str | None = None
         self.player_name = "玩家"
@@ -144,6 +144,7 @@ class GameWebServer:
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
         self._lock = asyncio.Lock()
+        self._lan_ip_cache = ""
 
     # ------------------------------------------------------------ 生命周期
 
@@ -206,10 +207,15 @@ class GameWebServer:
                 pass
         self._players.clear()
 
-    def url_for(self) -> str:
+    async def url_for(self) -> str:
         base = self.public_base_url
         if not base:
-            host = lan_ip() if self.host in ("0.0.0.0", "::") else self.host
+            if self.host in ("0.0.0.0", "::"):
+                if not self._lan_ip_cache:
+                    self._lan_ip_cache = await asyncio.to_thread(lan_ip)
+                host = self._lan_ip_cache
+            else:
+                host = self.host
             base = f"http://{host}:{self.port}"
             self.logger.info("[buckshot] player link host=%s", host)
         token = quote(self.token or "")

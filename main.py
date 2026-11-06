@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import re
 import secrets
@@ -26,7 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from astrbot import logger
+from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import Plain
 from astrbot.api.star import Context, Star, StarTools
@@ -53,7 +52,6 @@ from .memory.engine import BuckshotMemory
 from .web_controller.server import GameWebServer
 
 NAME = "astrbot_plugin_buckshot_mneme"
-LOG = logging.getLogger(NAME)
 
 ALLOWED_VIEW_KEYS = {
     "stage", "turn", "dealer_hp", "dealer_max_hp", "player_hp", "player_max_hp",
@@ -105,7 +103,7 @@ class BuckshotMnemePlugin(Star):
             on_game_connected=self._on_game_connected,
             public_base_url=self._conf("public_base_url", ""),
             bridge_token=self.bridge_token,
-            logger=self.logger,
+            log=self.logger,
         )
         self._active: ActiveMatch | None = None
         self.active_player_origin: str | None = None
@@ -123,7 +121,7 @@ class BuckshotMnemePlugin(Star):
         self._tunnel_proc: asyncio.subprocess.Process | None = None
         self._tunnel_task: asyncio.Task | None = None
         self._tunnel_url = ""
-        LOG.info("[buckshot] memory=%s web=%s:%s", self.memory_db,
+        logger.info("[buckshot] memory=%s web=%s:%s", self.memory_db,
                  self._conf("web_host", "0.0.0.0"), self._conf("web_port", 19528))
 
     # ------------------------------------------------------------ 配置/路径
@@ -187,7 +185,7 @@ class BuckshotMnemePlugin(Star):
             if persona:
                 return dict(persona)
         except Exception:
-            LOG.exception("[buckshot] resolve persona failed")
+            logger.exception("[buckshot] resolve persona failed")
         try:
             persona = await self.context.persona_manager.get_default_persona_v3(umo)
             if persona:
@@ -207,7 +205,7 @@ class BuckshotMnemePlugin(Star):
                         return provider
             return await self.context.get_using_provider_async(umo)
         except Exception:
-            LOG.exception("[buckshot] resolve provider failed")
+            logger.exception("[buckshot] resolve provider failed")
             return None
 
     async def _llm(self, umo: str, persona: dict, system: str, user: str, *,
@@ -292,7 +290,7 @@ class BuckshotMnemePlugin(Star):
                     await self._ensure_game_process()
                     match.kind = "godot"
                 except Exception as exc:
-                    LOG.exception("[buckshot] Godot start failed, fallback to mock")
+                    logger.exception("[buckshot] Godot start failed, fallback to mock")
                     match.transcript.append(f"[系统] Godot 启动失败，已回退 Mock：{exc}")
                     match.kind = "mock"
             if match.kind == "godot" and self.web.game_connected:
@@ -317,8 +315,8 @@ class BuckshotMnemePlugin(Star):
                 try:
                     await runner.start()
                 except Exception:
-                    LOG.exception("[buckshot] mock start failed")
-            url = self.web.url_for()
+                    logger.exception("[buckshot] mock start failed")
+            url = await self.web.url_for()
             opening = str(policy.get("opening_line") or "").strip()
             opening = opening.replace("{{url}}", url).replace("{url}", url)
             if url not in opening:
@@ -343,7 +341,7 @@ class BuckshotMnemePlugin(Star):
             parsed = parse_policy(text)
             result.update(parsed)
         except Exception as exc:
-            LOG.warning("[buckshot] policy llm failed: %s", exc)
+            logger.warning("[buckshot] policy llm failed: %s", exc)
         if explicit_mode:
             result["mode"] = explicit_mode
             if session_policy and "learn" in session_policy:
@@ -391,7 +389,7 @@ class BuckshotMnemePlugin(Star):
                 line = await proc.stderr.readline()
                 if not line:
                     return
-                LOG.debug("[buckshot] cloudflared: %s",
+                logger.debug("[buckshot] cloudflared: %s",
                           line.decode(errors="replace").strip())
         except asyncio.CancelledError:
             raise
@@ -406,7 +404,7 @@ class BuckshotMnemePlugin(Star):
             return
         exe = self._cloudflared_exe()
         if not exe:
-            LOG.warning("[buckshot] cloudflared not found; player link stays on LAN")
+            logger.warning("[buckshot] cloudflared not found; player link stays on LAN")
             return
         target_host = "127.0.0.1" if self.web.host in ("0.0.0.0", "::") else self.web.host
         target = f"http://{target_host}:{self.web.port}"
@@ -416,7 +414,7 @@ class BuckshotMnemePlugin(Star):
                 *cmd, stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE)
         except Exception:
-            LOG.exception("[buckshot] cloudflared start failed; player link stays on LAN")
+            logger.exception("[buckshot] cloudflared start failed; player link stays on LAN")
             return
         url = ""
         deadline = time.monotonic() + float(self._conf("tunnel_timeout", 20))
@@ -437,9 +435,9 @@ class BuckshotMnemePlugin(Star):
         except asyncio.TimeoutError:
             pass
         except Exception:
-            LOG.exception("[buckshot] cloudflared URL parse failed")
+            logger.exception("[buckshot] cloudflared URL parse failed")
         if not url:
-            LOG.warning("[buckshot] cloudflared did not report a public URL")
+            logger.warning("[buckshot] cloudflared did not report a public URL")
             try:
                 self._tunnel_proc.terminate()
             except Exception:
@@ -449,7 +447,7 @@ class BuckshotMnemePlugin(Star):
         self._tunnel_url = url
         self.web.public_base_url = url
         self._tunnel_task = asyncio.create_task(self._drain_tunnel_stderr())
-        LOG.info("[buckshot] cloudflared public url=%s", url)
+        logger.info("[buckshot] cloudflared public url=%s", url)
 
     async def _stop_tunnel(self) -> None:
         proc = self._tunnel_proc
@@ -497,7 +495,7 @@ class BuckshotMnemePlugin(Star):
         if self._game_proc.returncode is not None:
             raise RuntimeError(f"Godot 进程启动后立即退出（{self._game_proc.returncode}），"
                                f"日志：{log_path}")
-        LOG.info("[buckshot] Godot started pid=%s", self._game_proc.pid)
+        logger.info("[buckshot] Godot started pid=%s", self._game_proc.pid)
 
     async def _on_game_connected(self) -> None:
         match = self._active
@@ -527,7 +525,7 @@ class BuckshotMnemePlugin(Star):
                                    timeout=float(self._conf("dealer_llm_timeout", 35)))
             decision = parse_dealer_decision(text, safe_view)
         except Exception as exc:
-            LOG.warning("[buckshot] dealer llm failed: %s", exc)
+            logger.warning("[buckshot] dealer llm failed: %s", exc)
             decision = parse_dealer_decision("", safe_view)
             decision["fallback"] = True
         if practice:
@@ -714,7 +712,7 @@ class BuckshotMnemePlugin(Star):
                 await self.context.send_message(match.umo, MessageChain([Plain(text)]))
                 self._qq_last[match.match_id] = time.monotonic()
             except Exception:
-                LOG.exception("[buckshot] send_message failed")
+                logger.exception("[buckshot] send_message failed")
 
     async def _banter(self, match: ActiveMatch, payload: dict, state: dict) -> None:
         if match.finished:
@@ -745,7 +743,7 @@ class BuckshotMnemePlugin(Star):
             if text:
                 await self._send_qq(match, text[:500])
         except Exception as exc:
-            LOG.warning("[buckshot] banter failed: %s", exc)
+            logger.warning("[buckshot] banter failed: %s", exc)
 
     async def _finish_match(self, match: ActiveMatch, info: dict) -> None:
         if match.finished:
@@ -770,7 +768,7 @@ class BuckshotMnemePlugin(Star):
                     profile=reviewed["profile"], heuristics=reviewed["heuristics"])
                 review_message = reviewed.get("qq_message", "")
             except Exception:
-                LOG.exception("[buckshot] review failed")
+                logger.exception("[buckshot] review failed")
         self.memory.end_match(match.match_id, result=result if result in
                               ("win", "loss", "draw") else "draw",
                               meta={"transcript": transcript[-8000:],
@@ -799,7 +797,7 @@ class BuckshotMnemePlugin(Star):
         except Exception:
             pass
         self._active = None
-        LOG.info("[buckshot] aborted match %s: %s", match.match_id, reason)
+        logger.info("[buckshot] aborted match %s: %s", match.match_id, reason)
 
     # ------------------------------------------------------------ 自主练习
 
@@ -870,17 +868,17 @@ class BuckshotMnemePlugin(Star):
                     self.memory.commit_review(practice_key, last_practice_id or "practice",
                                               profile=[], heuristics=heuristics)
             except Exception:
-                LOG.exception("[buckshot] practice review failed")
+                logger.exception("[buckshot] practice review failed")
             summary = review_message or (
                 f"我练了 {rounds} 局。恶魔胜 {wins} 局，负 {losses} 局。"
                 + ("记住的感觉已经写下来了。" if heuristics else "这次没总结出什么新东西。"))
             if focus:
                 summary += f"\n（重点：{focus[:80]}）"
             await self.context.send_message(uma, MessageChain([Plain(summary)]))
-            LOG.info("[buckshot] practice finished rounds=%s wins=%s losses=%s",
+            logger.info("[buckshot] practice finished rounds=%s wins=%s losses=%s",
                      rounds, wins, losses)
         except Exception:
-            LOG.exception("[buckshot] practice failed")
+            logger.exception("[buckshot] practice failed")
             try:
                 await self.context.send_message(
                     event.unified_msg_origin,
@@ -963,7 +961,7 @@ class BuckshotMnemePlugin(Star):
                 timeout=float(self._conf("intent_llm_timeout", 25)))
             result = parse_intent(raw)
         except Exception as exc:
-            LOG.warning("[buckshot] semantic start gate skipped: %s", exc)
+            logger.warning("[buckshot] semantic start gate skipped: %s", exc)
             return
         action = resolve_intent_action(
             result["intent"], result["confidence"], has_pending=bool(pending),
@@ -971,7 +969,7 @@ class BuckshotMnemePlugin(Star):
         if (pending and result["intent"] in ("start", "restart")
                 and result["confidence"] >= 0.5):
             action = "start_now"
-        LOG.info("[buckshot] semantic start intent=%s conf=%.2f action=%s",
+        logger.info("[buckshot] semantic start intent=%s conf=%.2f action=%s",
                  result["intent"], result["confidence"], action)
         if action == "start_now":
             self._pending_start.pop(umo, None)
@@ -1027,7 +1025,7 @@ class BuckshotMnemePlugin(Star):
         if note:
             opening = opening + f"\n（{note[:80]}）"
         await self._send_qq(match, opening)
-        return json.dumps({"ok": True, "url": self.web.url_for(), "mode": match.memory_mode,
+        return json.dumps({"ok": True, "url": await self.web.url_for(), "mode": match.memory_mode,
                            "message": "对局已开始，链接和开场白已经主动发送到当前会话。"},
                           ensure_ascii=False)
 
