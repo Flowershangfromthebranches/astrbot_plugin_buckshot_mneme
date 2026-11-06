@@ -1,0 +1,115 @@
+{
+  "game_mode": {
+    "description": "游戏运行模式",
+    "hint": "mock：内置模拟器，无需 Godot，适合先测试全链路；godot：启动配置的 Godot 可执行文件并等待探针连接；external：假设游戏已自行启动。",
+    "type": "string",
+    "options": ["mock", "godot", "external"],
+    "default": "mock"
+  },
+  "godot_executable": {
+    "description": "Godot 游戏或编辑器可执行文件路径",
+    "hint": "godot 模式下必填。macOS 请指向真正的可执行文件，而不是 .app 目录；需要已编译并启用 AstrBotBridge。",
+    "type": "string",
+    "default": ""
+  },
+  "godot_main_pack": {
+    "description": "Godot 独立 PCK 路径（可选）",
+    "hint": "使用 repack_pck.py 重打补丁 PCK 后填写；会以 --main-pack 启动。",
+    "type": "string",
+    "default": ""
+  },
+  "godot_project_path": {
+    "description": "Godot 工程路径（可选）",
+    "hint": "使用 Godot 编辑器运行时填写，会以 --path 启动；直接运行导出游戏可留空。",
+    "type": "string",
+    "default": ""
+  },
+  "web_host": {
+    "description": "网页控制器监听地址",
+    "hint": "手机与 Mac 不在同一台设备时使用 0.0.0.0，并通过局域网地址访问。",
+    "type": "string",
+    "default": "0.0.0.0"
+  },
+  "web_port": {
+    "description": "网页控制器端口",
+    "hint": "默认 19528；AstrBotBridge 也连接此端口。",
+    "type": "int",
+    "default": 19528
+  },
+  "public_base_url": {
+    "description": "对外访问前缀（可选）",
+    "hint": "例如 https://your-tunnel.example.com；留空时自动使用局域网 IP 或 cloudflared 隧道。",
+    "type": "string",
+    "default": ""
+  },
+  "remote_mode": {
+    "description": "远程游玩通道",
+    "hint": "off：仅局域网；cloudflared：自动启动 Cloudflare 快隧道，把公网 HTTPS 链接发到 QQ。需要先安装 cloudflared；快隧道每次重启换地址。",
+    "type": "string",
+    "options": ["off", "cloudflared"],
+    "default": "off"
+  },
+  "cloudflared_path": {
+    "description": "cloudflared 可执行文件路径（可选）",
+    "hint": "留空自动查找 PATH、/opt/homebrew/bin、/usr/local/bin。",
+    "type": "string",
+    "default": ""
+  },
+  "tunnel_timeout": {
+    "description": "等待 Cloudflare 隧道地址的超时（秒）",
+    "type": "int",
+    "default": 20
+  },
+  "bridge_token": {
+    "description": "Godot 游戏桥 token（可选）",
+    "hint": "留空自动生成。插件启动 Godot 时会通过 BUCKSHOT_BRIDGE_TOKEN 环境变量传入；external 模式需在游戏进程设置同一个值。",
+    "type": "string",
+    "default": ""
+  },
+  "llm_provider_id": {
+    "description": "恶魔决策使用的 LLM Provider",
+    "hint": "留空使用当前会话模型；建议选择支持稳定 JSON 输出的模型。",
+    "type": "string",
+    "_special": "select_provider",
+    "default": ""
+  },
+  "llm_timeout": {
+    "description": "单次人格/策略调用超时（秒）",
+    "type": "int",
+    "default": 35
+  },
+  "balanced_hp": {
+    "description": "Mock 对局使用对称血量",
+    "hint": "开启后每关双方血量相同（3/3/4），不再沿用原版给脚本庄家的第二关 +1 血补偿；关闭则保留原版不对称血量。Godot 模式仍使用游戏本体的血量配置。",
+    "type": "bool",
+    "default": true
+  },
+  "semantic_start": {
+    "description": "私聊语义开局判断",
+    "hint": "开启后，私聊里由人格模型语义判断是否想开局；疑似时会先问确认，明确同意才开局。关闭后只用斜杠命令或 LLM 工具开局。",
+    "type": "bool",
+    "default": true
+  },
+  "intent_llm_timeout": {
+    "description": "语义开局判断超时（秒）",
+    "hint": "每次私聊判断会调用一次当前模型；超时则放行给正常人格聊天，不拦截。",
+    "type": "int",
+    "default": 10
+  },
+  "dealer_llm_timeout": {
+    "description": "恶魔回合决策超时（秒）",
+    "type": "int",
+    "default": 35
+  },
+  "review_llm_timeout": {
+    "description": "赛后复盘超时（秒）",
+    "type": "int",
+    "default": 45
+  },
+  "qq_min_interval": {
+    "description": "主动 QQ 消息最小间隔（秒）",
+    "hint": "防止事件吐槽和恶魔行动台词刷屏。",
+    "type": "float",
+    "default": 1.2
+  }
+}
