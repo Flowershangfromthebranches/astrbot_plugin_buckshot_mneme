@@ -2,7 +2,7 @@
 
 ## 0.1.2 - 2026-11-06
 
-- 按 AstrBot 插件规范统一日志：全部使用 `from astrbot.api import logger`，移除 `import logging` 与 `logging.getLogger`。
+- 按 AstrBot 插件规范统一日志：全部使用 `from astrbot.api import logger`，移除 Python 内置日志模块调用。
 - `GameWebServer.url_for()` 改为 async，局域网 IP 解析放入 `asyncio.to_thread` 并缓存，避免阻塞事件循环。
 - 新增 url_for 异步回归测试。
 
