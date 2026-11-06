@@ -273,9 +273,10 @@ def build_intent_prompt(persona_prompt: str, persona_name: str | None,
 - 不确定时用 other 或较低的 confidence，不要硬猜。
 
 reply 规则：
-- start 且 confidence < 0.9：用你的人设问一句“要不要现在开一局”，最多两短句。
-- restart 且 confidence < 0.9：用你的人设问一句“这局还没结束，要重开吗？”。
-- start/restart 且 confidence >= 0.9：reply 可以为空字符串，表示可以直接开局/重开。
+- start 且 confidence < 0.6：用你的人设问一句“要不要现在开一局”，最多两短句。
+- restart 且 confidence < 0.85：用你的人设问一句“这局还没结束，要重开吗？”。
+- start 且 confidence >= 0.6：reply 可以为空字符串，表示可以直接开局。
+- restart 且 confidence >= 0.85：reply 可以为空字符串，表示可以直接重开。
 - confirm：reply 可以为空字符串。
 - decline：用你的人设回一句，不纠缠。
 - other：reply 必须为空字符串，不要打扰正常聊天。"""
@@ -303,11 +304,19 @@ def resolve_intent_action(intent: str, confidence: float,
         return "start_now" if has_pending and confidence >= 0.5 else "ignore"
     if intent == "decline":
         return "decline" if has_pending and confidence >= 0.5 else "ignore"
-    if intent in ("start", "restart"):
-        if confidence >= 0.9:
+    if intent == "start":
+        if active_match:
+            # “开始”在已有对局里等于重开，要求更高把握。
+            if confidence >= 0.85:
+                return "start_now"
+            return "ask" if confidence >= 0.5 else "ignore"
+        if confidence >= 0.6:
             return "start_now"
-        if confidence >= 0.5:
-            return "ask"
+        return "ask" if confidence >= 0.35 else "ignore"
+    if intent == "restart":
+        if confidence >= 0.85:
+            return "start_now"
+        return "ask" if confidence >= 0.5 else "ignore"
     return "ignore"
 
 

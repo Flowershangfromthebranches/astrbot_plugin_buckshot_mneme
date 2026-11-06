@@ -933,7 +933,7 @@ class BuckshotMnemePlugin(Star):
     def _confirm_question(self, persona: dict) -> str:
         return "要我现在摆桌，陪你玩一局吗？"
 
-    @filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE, priority=-100)
+    @filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE, priority=10000)
     async def semantic_start_gate(self, event: AstrMessageEvent):
         """Private-chat semantic start gate: ask before starting, never keyword-match."""
         if event.is_stopped() or not self._semantic_start_enabled():
@@ -941,13 +941,16 @@ class BuckshotMnemePlugin(Star):
         text = (event.message_str or "").strip()
         if not text or text.startswith(("/", "／")):
             return
+        # 显式命令交给 command handler，避免语义门重复处理。
+        if text in ("恶魔轮盘赌", "重开", "重开一局") or text.startswith(
+                ("恶魔轮盘赌 ", "重开 ", "重开一局 ")):
+            return
         umo = event.unified_msg_origin
         pending = self._pending_start.get(umo)
         if pending and pending.get("expires_at", 0) < time.monotonic():
             self._pending_start.pop(umo, None)
             pending = None
         active = self._active is not None and not self._active.finished
-        LOG.debug("[buckshot] semantic gate active=%s", active)
         persona = await self._resolve_persona(event)
         persona_name = self._persona_display_name(persona)
         system, user = build_intent_prompt(
@@ -957,7 +960,7 @@ class BuckshotMnemePlugin(Star):
         try:
             raw = await self._llm(
                 umo, persona, system, user, with_dialogs=False,
-                timeout=float(self._conf("intent_llm_timeout", 10)))
+                timeout=float(self._conf("intent_llm_timeout", 25)))
             result = parse_intent(raw)
         except Exception as exc:
             LOG.warning("[buckshot] semantic start gate skipped: %s", exc)

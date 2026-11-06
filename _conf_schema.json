@@ -94,7 +94,7 @@
     "description": "语义开局判断超时（秒）",
     "hint": "每次私聊判断会调用一次当前模型；超时则放行给正常人格聊天，不拦截。",
     "type": "int",
-    "default": 10
+    "default": 25
   },
   "dealer_llm_timeout": {
     "description": "恶魔回合决策超时（秒）",

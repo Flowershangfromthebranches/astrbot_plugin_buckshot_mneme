@@ -98,7 +98,8 @@ def test_semantic_start_intent_and_confirmation():
     assert parse_intent('{"intent":"restart","confidence":0.9}')["intent"] == "restart"
 
     assert resolve_intent_action("start", 0.95, False) == "start_now"
-    assert resolve_intent_action("start", 0.7, False) == "ask"
+    assert resolve_intent_action("start", 0.7, False) == "start_now"
+    assert resolve_intent_action("start", 0.45, False) == "ask"
     assert resolve_intent_action("start", 0.3, False) == "ignore"
     assert resolve_intent_action("restart", 0.95, False, active_match=True) == "start_now"
     assert resolve_intent_action("restart", 0.7, False, active_match=True) == "ask"

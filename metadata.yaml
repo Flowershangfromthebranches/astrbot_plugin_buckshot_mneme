@@ -8,7 +8,7 @@ desc: >-
   自动维护本局算牌便条、跨局玩家画像和博弈法则；支持通过自然语言让 AI 开/关记忆、
   自己练习变强，默认 mock 模式无需 Godot 即可完整测试。
 help: 直接说想玩/重开即可；也可用 /恶魔轮盘赌。可以自然地让 AI“自己多练练”或“别用记忆，正常打”。
-version: 0.1.0
+version: 0.1.1
 author: Flowershangfromthebranches
 repo: https://github.com/Flowershangfromthebranches/astrbot_plugin_buckshot_mneme
 social_link: https://github.com/Flowershangfromthebranches
